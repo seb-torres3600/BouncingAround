@@ -11,10 +11,10 @@ class Game:
         self.width = self.window.winfo_width()
         self.height = self.window.winfo_height()
         self.color = "white"
-        self.left_x_speed = random.randint(30,50)
-        self.left_y_speed = random.choice(list(range(-50, -30)) + list(range(30, 50)))
-        self.right_x_speed = random.randint(-50,-30)
-        self.right_y_speed = random.choice(list(range(-50, -30)) + list(range(30, 50)))
+        self.left_x_speed = random.randint(3,5)
+        self.left_y_speed = random.choice(list(range(-5, -3)) + list(range(3, 5)))
+        self.right_x_speed = random.randint(-5,-3)
+        self.right_y_speed = random.choice(list(range(-5, -3)) + list(range(3, 5)))
         self.left_ball = None
         self.right_ball = None
         self.blue_edge = {}
@@ -46,7 +46,7 @@ class Game:
             self.right_ball = self.canvas.create_oval(x0, y0, x1, y1, fill=self.color)
 
     def createSides(self):
-        divisble_by = 25
+        divisble_by = 10
         box_width = self.width // divisble_by
         box_height = self.height // divisble_by
         threshold = box_width // 2
@@ -73,40 +73,32 @@ class Game:
 
     def moveBall(self, side):
         if side == "LEFT":
-            max_left = 0
-            max_right = self.width // 2
             ball = self.left_ball
+            ball_center = self.__ballSize()/2 + self.canvas.coords(ball)[1]
             x_speed = self.left_x_speed
             y_speed = self.left_y_speed
+            max_left = 0
+            max_right = self.__max_x("LEFT", ball_center)
         else:
-            max_left = self.width // 2
-            max_right = self.width
             ball = self.right_ball
+            ball_center = self.__ballSize()/2 + self.canvas.coords(ball)[1]
             x_speed = self.right_x_speed
             y_speed = self.right_y_speed
+            max_left = self.__max_x("RIGHT", ball_center)
+            max_right = self.width
 
-        if self.__boxesHit(side, ball):
-            x_speed *= -1
-
+        # Remain ball in each side
         if self.canvas.coords(ball)[0] <= max_left and side == "LEFT":
             x_speed *= -1
-
-        '''
-        if self.canvas.coords(ball)[2] >= max_right and side == "LEFT":
-            ball_center = int((self.canvas.coords(ball)[1] + self.canvas.coords(ball)[3]) // 2)
-            self.__boxesHit(side, ball_center)
+        elif self.canvas.coords(ball)[0] <= max_left and side == "RIGHT":
+            self.___hit(side, ball)
             x_speed *= -1
-        
-        if self.canvas.coords(ball)[0] <= max_left and side == "LEFT":
+        elif self.canvas.coords(ball)[2] >= max_right and side == "RIGHT":
             x_speed *= -1
-        
-        if self.canvas.coords(ball)[2] >= max_right and side == "RIGHT":
+        elif self.canvas.coords(ball)[2] >= max_right and side == "LEFT":
+            self.___hit(side, ball)
             x_speed *= -1
 
-        if self.canvas.coords(ball)[0] <= max_left and side == "RIGHT":
-            self.__boxesHit(side, ball)
-            x_speed *= -1
-        '''
         if self.canvas.coords(ball)[1] <= 0 or self.canvas.coords(ball)[3] >= self.window.winfo_height():
             y_speed *= -1
 
@@ -118,18 +110,37 @@ class Game:
             self.right_y_speed = y_speed
 
         self.canvas.move(ball, x_speed, y_speed)
-        self.window.after(5, self.moveBall, side)
+        self.window.after(10, self.moveBall, side)
+    
+    # Check what the max x left/right is for that coordinate
+    def __max_x(self, side, center):
+        if side == "LEFT":
+            hit_edge = self.blue_edge
+        else:
+            hit_edge = self.red_edge
 
-    def __boxesHit(self, side, ball):
-        threshold = abs((self.canvas.coords(ball)[0] - self.canvas.coords(ball)[2]) // 2)
+        keys = list(hit_edge.keys())
+        for i in range(len(keys)):
+            if i < len(keys) - 1:  # Check if it's not the last key
+                box_top = keys[i + 1]
+                box_bottom = keys[i]
+                if box_top >= center and box_bottom <= center:
+                    if len(hit_edge[keys[i]]) != 0:
+                        if side == "LEFT":
+                            box = hit_edge[keys[i]][0]
+                            return self.canvas.coords(box)[0]
+                        else:
+                            box = hit_edge[keys[i]][-1]
+                            return self.canvas.coords(box)[2]
+    
+    # Switch color on box when hit
+    def ___hit(self, side, ball):
         ball_center = int((self.canvas.coords(ball)[1] + self.canvas.coords(ball)[3]) // 2)
         if side == "LEFT":
-            ball_edge = self.canvas.coords(ball)[2]
             hit_edge = self.blue_edge
             new_edge = self.red_edge
             color = "red"
         else:
-            ball_edge = self.canvas.coords(ball)[0]
             hit_edge = self.red_edge
             new_edge = self.blue_edge
             color = "blue"
@@ -140,29 +151,28 @@ class Game:
                 box_top = keys[i + 1]
                 box_bottom = keys[i]
                 if box_top >= ball_center and box_bottom <= ball_center:
-                    if side == "LEFT":
-                        box = hit_edge[keys[i]][0]
-                        box_left_side = self.canvas.coords(box)[0]
-                        if abs(box_left_side - ball_edge) < threshold:
-                            hit_edge[keys[i]].pop(0)
+                    if len(hit_edge[keys[i]]) != 0:
+                        if side == "LEFT":
+                            box = hit_edge[keys[i]].pop(0)
                             new_edge[keys[i]].append(box)
                             self.canvas.itemconfigure(new_edge[keys[i]][-1], fill=color)
-                            return True
-                    else:
-                        box = hit_edge[keys[i]].pop()
-                        new_edge[keys[i]].insert(0, box)
-                        self.canvas.itemconfigure(new_edge[keys[i]][0], fill=color)
-                        break
-        return False
+                            break
+                        else:
+                            box = hit_edge[keys[i]].pop()
+                            new_edge[keys[i]].insert(0, box)
+                            self.canvas.itemconfigure(new_edge[keys[i]][0], fill=color)
+                            break
 
+    # Get window center
     def __getWindowCenter(self):
         self.window.update_idletasks()
         x = self.width // 2
         y = self.height // 2
         return x, y
     
+    # Make the ball size
     def __ballSize(self):
-        return self.height // 50
+        return self.height // 30
     
                 
 
